@@ -1,12 +1,12 @@
 package frc.libraries;
 
-import com.revrobotics.CANEncoder;
-
 import edu.wpi.first.wpilibj2.command.Subsystem;
 import edu.wpi.first.wpilibj.drive.DifferentialDrive;
+import edu.wpi.first.wpilibj.interfaces.Accelerometer;
+import edu.wpi.first.wpilibj.BuiltInAccelerometer;
 import edu.wpi.first.wpilibj.DoubleSolenoid;
-
-import frc.robot.CANSpark1038;
+import edu.wpi.first.wpilibj.PneumaticsModuleType;
+import edu.wpi.first.wpilibj.DoubleSolenoid.Value;
 
 public class DriveTrain1038 implements Subsystem {
     public enum DriveModes {
@@ -14,8 +14,9 @@ public class DriveTrain1038 implements Subsystem {
     };
 
     public DriveModes currentDriveMode = DriveModes.dualArcadeDrive;
+    public boolean isHighGear = false;
 
-    //Change these numbers for each new robot       v
+   //Change these numbers for each new robot
     public final double WHEEL_DIAMETER = 4;
     private final int HIGH_GEAR_PORT = 0;
     private final int LOW_GEAR_PORT = 1;
@@ -23,19 +24,19 @@ public class DriveTrain1038 implements Subsystem {
     private final static int RIGHT_BACK_PORT = 0;
     private final static int LEFT_FRONT_PORT = 0;
     private final static int LEFT_BACK_PORT = 0;
-    //Change these numbers for each new robot       ^
+    //Change these numbers for each new robot
 
+    // Wheel Motors
+    final TalonFX1038 leftFrontTalon = new TalonFX1038(LEFT_FRONT_PORT);
+    final TalonFX1038 rightFrontTalon = new TalonFX1038(RIGHT_FRONT_PORT);
+    final TalonFX1038 leftBackTalon = new TalonFX1038(LEFT_BACK_PORT);
+    final TalonFX1038 rightBackTalon = new TalonFX1038(RIGHT_BACK_PORT);
+    private Accelerometer accelerometer = new BuiltInAccelerometer();
 
-    public DoubleSolenoid GearChangeSolenoid = new DoubleSolenoid(LOW_GEAR_PORT, HIGH_GEAR_PORT);
-    public boolean isHighGear = false;
-
-    public static CANSpark1038 CANSparkRightFront = new CANSpark1038(RIGHT_FRONT_PORT, MotorType.kBrushless);
-    public static CANSpark1038 CANSparkRightBack = new CANSpark1038(RIGHT_BACK_PORT, MotorType.kBrushless);
-    public static CANSpark1038 CANSparkLeftFront = new CANSpark1038(LEFT_FRONT_PORT, MotorType.kBrushless);
-    public static CANSpark1038 CANSparkLeftBack = new CANSpark1038(LEFT_BACK_PORT, MotorType.kBrushless);
-
-    public CANEncoder CANSparkRightEncoder = new CANEncoder(CANSparkRightBack);
-    public CANEncoder CANSparkLeftEncoder = new CANEncoder(CANSparkLeftBack);
+    public DoubleSolenoid GearChangeSolenoid = new DoubleSolenoid(
+            PneumaticsModuleType.REVPH,
+            LOW_GEAR_PORT,
+            HIGH_GEAR_PORT);
 
     private DifferentialDrive differentialDrive;
     private static DriveTrain1038 driveTrain;
@@ -48,92 +49,101 @@ public class DriveTrain1038 implements Subsystem {
         return driveTrain;
     }
 
-    private DriveTrain1038() {
-        CANSparkLeftBack.restoreFactoryDefaults();
-        CANSparkLeftFront.restoreFactoryDefaults();
-        CANSparkRightBack.restoreFactoryDefaults();
-        CANSparkRightFront.restoreFactoryDefaults();
-
-        CANSparkLeftBack.setInverted(true);
-        CANSparkLeftFront.setInverted(true);
-        CANSparkRightBack.setInverted(true);
-        CANSparkRightFront.setInverted(true);
-
-        CANSparkLeftBack.setIdleMode(IdleMode.kCoast);
-        CANSparkLeftFront.setIdleMode(IdleMode.kCoast);
-        CANSparkRightBack.setIdleMode(IdleMode.kCoast);
-        CANSparkRightFront.setIdleMode(IdleMode.kCoast);
-
-        CANSparkRightFront.follow(CANSparkRightBack);
-        CANSparkLeftFront.follow(CANSparkLeftBack);
-        
-        differentialDrive = new DifferentialDrive(CANSparkLeftBack, CANSparkRightBack);
+    public DriveTrain1038() {
+        leftFrontTalon.setInverted(true);
+        leftBackTalon.setInverted(true);
+        leftBackTalon.follow(leftFrontTalon);
+        rightBackTalon.follow(rightFrontTalon);
+        differentialDrive = new DifferentialDrive(leftFrontTalon, rightFrontTalon);
+        this.lowGear();
     }
 
-    // Get and return distance driven by the left of the robot in inches
+    /**
+     * Get and return distance driven by the left of the robot in inches
+     */
     public double getLeftDriveEncoderDistance() {
-        return CANSparkLeftEncoder.getPosition() * Math.PI * WHEEL_DIAMETER;
+        return leftFrontTalon.getRotations() * Math.PI * WHEEL_DIAMETER;
     }
 
-    // Get and return distance driven by the right of the robot in inches
+    /**
+     * Get and return distance driven by the right of the robot in inches
+     */
     public double getRightDriveEncoderDistance() {
-        return CANSparkRightEncoder.getPosition() * Math.PI * WHEEL_DIAMETER;
+        return rightFrontTalon.getRotations() * Math.PI * WHEEL_DIAMETER;
     }
 
-    public double getCANSparkRightEncoder() {
-        return -CANSparkRightEncoder.getPosition();
-    }
-
-    public double getCANSparkLeftEncoder() {
-        return -CANSparkLeftEncoder.getPosition();
-    }
-
-    // Pneumatics
+    /**
+     * Set the drive train to use high gear
+     */
     public void highGear() {
         isHighGear = true;
-        GearChangeSolenoid.set(DoubleSolenoid.Value.kForward);
+        GearChangeSolenoid.set(Value.kForward);
     }
 
+    /**
+     * Set the drive train to use low gear
+     */
     public void lowGear() {
         isHighGear = false;
-        GearChangeSolenoid.set(DoubleSolenoid.Value.kReverse);
+        GearChangeSolenoid.set(Value.kReverse);
     }
 
+    /**
+     * Reset drive encoders to zero
+     */
     public void resetEncoders() {
-        CANSparkRightEncoder.setPosition(0);
-        CANSparkLeftEncoder.setPosition(0);
+        leftFrontTalon.resetPosition();
+        rightFrontTalon.resetPosition();
     }
 
-    // Switch between drive modes
+    /**
+     * Toggle drive mode between tank, single arcade, and dual arcade
+     */
     public void driveModeToggler() {
         switch (currentDriveMode) {
-        case tankDrive:
-            currentDriveMode = DriveModes.singleArcadeDrive;
-            break;
-        case singleArcadeDrive:
-            currentDriveMode = DriveModes.dualArcadeDrive;
-            break;
-        case dualArcadeDrive:
-            currentDriveMode = DriveModes.tankDrive;
-            break;
-        default:
-            System.out.println("Help I have fallen and I can't get up!");
-            break;
+            case tankDrive:
+                currentDriveMode = DriveModes.singleArcadeDrive;
+                break;
+            case singleArcadeDrive:
+                currentDriveMode = DriveModes.dualArcadeDrive;
+                break;
+            case dualArcadeDrive:
+                currentDriveMode = DriveModes.tankDrive;
+                break;
+            default:
+                System.out.println("Help I have fallen and I can't get up!");
+                break;
         }
     }
 
-    // Drive robot with tank controls (input range -1 to 1 for each stick)
+    /**
+     * Drive the robot in tank mode
+     *
+     * @param leftStickInput  the forward speed of the left side of the robot
+     *                        (-1 to 1)
+     * @param rightStickInput the forward speed of the right side of the robot
+     *                        (-1 to 1)
+     */
     public void tankDrive(double leftStickInput, double rightStickInput) {
         differentialDrive.tankDrive(leftStickInput, rightStickInput, true);
     }
 
-    // Drive robot using a single stick (input range -1 to 1)
-    public void singleAracadeDrive(double speed, double turnValue) {
+    /**
+     * Drive the robot in single stick arcade mode
+     *
+     * @param speed     The forward speed of the robot (-1 to 1)
+     * @param turnValue The turn speed of the robot (-1 to 1)
+     */
+    public void arcadeDrive(double speed, double turnValue) {
         differentialDrive.arcadeDrive(speed, turnValue, true);
     }
 
-    // Drive robot using 2 sticks (input ranges -1 to 1)
-    public void dualArcadeDrive(double yaxis, double xaxis) {
-        differentialDrive.arcadeDrive(yaxis, xaxis, true);
+    /**
+     * Returns the current robot speed in feet per second.
+     *
+     * @return the current robot speed in feet per second.
+     */
+    public double robotSpeed() {
+        return accelerometer.getX();
     }
 }
