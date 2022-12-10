@@ -1,12 +1,11 @@
-package frc.libraries;
+package frc.robot.libraries;
 
 import edu.wpi.first.wpilibj.I2C;
 import edu.wpi.first.wpilibj.interfaces.Gyro;
 
 public class Gyro1038 implements Gyro {
-
-    // Variables
-    private final int SENSOR_ID_CODE = 0x02;
+    // Ports and Constants
+    public final int SENSOR_ID_CODE = 0x02;
     private final int COMMAND = 0x03;
     private final int HEADING_DATA = 0x04;
     private final int INTEGRATED_Z_VALUE = 0x06;
@@ -18,36 +17,37 @@ public class Gyro1038 implements Gyro {
     private final int NORMAL_MEASUREMENT_MODE = 0x00;
     private final int GYRO_RECALIBRATE = 0x4E;
     private final int RESET_Z_AXIS_INTEGRATOR = 0x52;
+
+    // States
     private double gyroVal;
 
-    // Objects
+    // Inputs
     private I2C I2CBus;
-    private static Gyro1038 gyroSensor;
+
+    // Singleton Setup
+    private static Gyro1038 instance;
+
+    public static Gyro1038 getInstance() {
+        if (instance == null) {
+            System.out.println("Creating a new Gyro");
+            instance = new Gyro1038();
+        }
+        return instance;
+    }
 
     /**
      * Initializes the gyro to listen to the onboard I2C port at the set address and
      * calibrates the gyro
      */
     private Gyro1038() {
-        I2CBus = new I2C(I2C.Port.kOnboard, DEVICE_ADDRESS);
+        super();
+        I2CBus = new I2C(I2C.Port.kMXP, DEVICE_ADDRESS);
         calibrate();
-    }
-
-    /**
-     * Returns the gyro instance created when the robot starts
-     *
-     * @return Gyro instance
-     */
-    public static Gyro1038 getInstance() {
-        if (gyroSensor == null) {
-            System.out.println("Creating a new Gyro");
-            gyroSensor = new Gyro1038();
-        }
-        return gyroSensor;
     }
 
     @Override
     public double getAngle() {
+        readGyro();
         return gyroVal;
     }
 
@@ -100,5 +100,6 @@ public class Gyro1038 implements Gyro {
     }
 
     @Override
-    public void close() throws Exception {}
+    public void close() throws Exception {
+    }
 }

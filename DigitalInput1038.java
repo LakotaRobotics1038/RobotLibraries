@@ -1,4 +1,4 @@
-package frc.libraries;
+package frc.robot.libraries;
 
 import edu.wpi.first.wpilibj.DigitalInput;
 
